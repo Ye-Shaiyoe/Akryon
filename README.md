@@ -27,7 +27,8 @@ etc
 ```
 
 ## Requirement
-
+ ...
+ 
 ### Tools yang dibutuhkan:
 
 - **NASM** (Netwide Assembler)
