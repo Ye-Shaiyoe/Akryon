@@ -1,0 +1,220 @@
+; ==============================================================================
+; Akryon OS - Kernel Entry & ISR Handlers
+; 32-bit Protected Mode Assembly Glue
+; ==============================================================================
+
+[BITS 32]
+
+global _start
+global load_gdt_asm
+global load_idt_asm
+global isr0, isr1, isr2, isr3, isr4, isr5, isr6, isr7
+global isr8, isr9, isr10, isr11, isr12, isr13, isr14, isr15
+global isr16, isr17, isr18, isr19, isr20, isr21, isr22, isr23
+global isr24, isr25, isr26, isr27, isr28, isr29, isr30, isr31
+
+global irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7
+global irq8, irq9, irq10, irq11, irq12, irq13, irq14, irq15
+
+extern kmain
+extern isr_handler
+extern irq_handler
+
+SECTION .text
+
+; ------------------------------------------------------------------------------
+; Kernel Entry Point
+; ------------------------------------------------------------------------------
+_start:
+    ; Pastikan segment data 0x10 sudah diset
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    ; Setup stack
+    mov esp, 0x90000
+
+    ; Aktifkan FPU & SSE pada CR0 dan CR4
+    mov eax, cr0
+    and eax, ~(1 << 2)          ; Clear EM (Emulation)
+    or eax, (1 << 1)           ; Set MP (Monitor Coprocessor)
+    mov cr0, eax
+
+    mov eax, cr4
+    or eax, (3 << 9)           ; Set OSFXSR (bit 9) dan OSXMMEXCPT (bit 10)
+    mov cr4, eax
+
+    ; Inisialisasi unit FPU
+    fninit
+
+    ; Panggil fungsi utama C kernel
+    call kmain
+
+    ; Jika kmain kembali, lakukan halt CPU
+.hang:
+    cli
+    hlt
+    jmp .hang
+
+; ------------------------------------------------------------------------------
+; GDT Loader Helper
+; ------------------------------------------------------------------------------
+load_gdt_asm:
+    mov eax, [esp + 4]          ; Pointer ke GDT descriptor
+    lgdt [eax]
+
+    ; Far jump untuk reload CS segment (0x08)
+    jmp 0x08:.reload_cs
+.reload_cs:
+    mov ax, 0x10                ; 0x10 = data segment selector
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+    ret
+
+; ------------------------------------------------------------------------------
+; IDT Loader Helper
+; ------------------------------------------------------------------------------
+load_idt_asm:
+    mov eax, [esp + 4]          ; Pointer ke IDT descriptor
+    lidt [eax]
+    ret
+
+; ------------------------------------------------------------------------------
+; ISR Exception Macros
+; ------------------------------------------------------------------------------
+%macro ISR_NOERRCODE 1
+    global isr%1
+    isr%1:
+        push 0                  ; Dummy error code
+        push %1                 ; Interrupt number
+        jmp isr_common_stub
+%endmacro
+
+%macro ISR_ERRCODE 1
+    global isr%1
+    isr%1:
+        push %1                 ; Interrupt number (error code sudah dipush CPU)
+        jmp isr_common_stub
+%endmacro
+
+; ISR Definitions (0 - 31)
+ISR_NOERRCODE 0
+ISR_NOERRCODE 1
+ISR_NOERRCODE 2
+ISR_NOERRCODE 3
+ISR_NOERRCODE 4
+ISR_NOERRCODE 5
+ISR_NOERRCODE 6
+ISR_NOERRCODE 7
+ISR_ERRCODE   8
+ISR_NOERRCODE 9
+ISR_ERRCODE   10
+ISR_ERRCODE   11
+ISR_ERRCODE   12
+ISR_ERRCODE   13
+ISR_ERRCODE   14
+ISR_NOERRCODE 15
+ISR_NOERRCODE 16
+ISR_ERRCODE   17
+ISR_NOERRCODE 18
+ISR_NOERRCODE 19
+ISR_NOERRCODE 20
+ISR_NOERRCODE 21
+ISR_NOERRCODE 22
+ISR_NOERRCODE 23
+ISR_NOERRCODE 24
+ISR_NOERRCODE 25
+ISR_NOERRCODE 26
+ISR_NOERRCODE 27
+ISR_NOERRCODE 28
+ISR_NOERRCODE 29
+ISR_NOERRCODE 30
+ISR_NOERRCODE 31
+
+; Common ISR Stub
+isr_common_stub:
+    pusha                       ; Push EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX
+
+    mov ax, ds                  ; Simpan data segment descriptor
+    push eax
+
+    mov ax, 0x10                ; Muat kernel data segment
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    push esp                    ; Pass pointer ke struct registers_t ke fungsi C
+    call isr_handler
+    add esp, 4                  ; Cleanup pointer argument
+
+    pop eax                     ; Restore original data segment
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    popa                        ; Restore register umum
+    add esp, 8                  ; Pop interrupt number dan error code
+    iret
+
+; ------------------------------------------------------------------------------
+; IRQ Macros (Hardware Interrupts 0..15 -> Remapped to 32..47)
+; ------------------------------------------------------------------------------
+%macro IRQ 2
+    global irq%1
+    irq%1:
+        push 0                  ; Dummy error code
+        push %2                 ; Remapped interrupt number (32..47)
+        jmp irq_common_stub
+%endmacro
+
+IRQ 0, 32
+IRQ 1, 33
+IRQ 2, 34
+IRQ 3, 35
+IRQ 4, 36
+IRQ 5, 37
+IRQ 6, 38
+IRQ 7, 39
+IRQ 8, 40
+IRQ 9, 41
+IRQ 10, 42
+IRQ 11, 43
+IRQ 12, 44
+IRQ 13, 45
+IRQ 14, 46
+IRQ 15, 47
+
+; Common IRQ Stub
+irq_common_stub:
+    pusha
+
+    mov ax, ds
+    push eax
+
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    push esp
+    call irq_handler
+    add esp, 4
+
+    pop eax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    popa
+    add esp, 8
+    iret
