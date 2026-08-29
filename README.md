@@ -1,6 +1,6 @@
-# Akryon OS ⚡
+# Akryon
 
-**Akryon OS** adalah sistem operasi hybrid modern yang dibangun dari awal (*from scratch*) untuk arsitektur **x86 (32-bit Protected Mode)** dengan menggabungkan keandalan **C & Assembly** pada level *Hardware Abstraction Layer (HAL)* dan keamanan memori serta kekuatan sistemik **Rust (`no_std`)** pada level *Kernel Core & Shell Subsystem*.
+**Akryon** adalah sistem operasi hybrid modern yang dibangun dari awal (*from scratch*) untuk arsitektur **x86 (32-bit Protected Mode)** dengan menggabungkan keandalan **C & Assembly** pada level *Hardware Abstraction Layer (HAL)* dan keamanan memori serta kekuatan sistemik **Rust (`no_std`)** pada level *Kernel Core & Shell Subsystem*.
 
 ---
 
