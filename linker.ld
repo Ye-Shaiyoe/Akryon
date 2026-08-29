@@ -1,31 +1,47 @@
+/* ==============================================================================
+ * Akryon OS - Linker Script
+ * Combines Assembly entry, C HAL drivers, and Rust kernel staticlib
+ * ============================================================================== */
 
-/* linker.ld - Linker script untuk SimpleOS */
-
-OUTPUT_FORMAT(binary)
+OUTPUT_FORMAT(elf32-i386)
+OUTPUT_ARCH(i386)
 ENTRY(_start)
 
 SECTIONS
 {
-    . = 0x1000;
+    /* Kernel dimuat di memori 0x10000 (64KB) oleh bootloader MBR */
+    . = 0x10000;
 
-    .text : ALIGN(512)
+    .text : ALIGN(4K)
     {
+        *(.text._start)
         *(.text)
+        *(.text.*)
     }
 
-    .rodata : ALIGN(512)
+    .rodata : ALIGN(4K)
     {
         *(.rodata)
+        *(.rodata.*)
     }
 
-    .data : ALIGN(512)
+    .data : ALIGN(4K)
     {
         *(.data)
+        *(.data.*)
     }
 
-    .bss : ALIGN(512)
+    .bss : ALIGN(4K)
     {
         *(COMMON)
         *(.bss)
+        *(.bss.*)
+    }
+
+    /DISCARD/ :
+    {
+        *(.comment)
+        *(.eh_frame)
+        *(.note.*)
     }
 }

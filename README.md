@@ -1,173 +1,166 @@
-# AkromOS
+# Akryon OS ⚡
 
-Operating system sederhana yang ditulis dalam Assembly dan C untuk arsitektur x86 (32-bit).
-
-## Tampilan awal
-<img width="1366" height="768" alt="swappy-20260113-023918" src="https://github.com/user-attachments/assets/a4225bdf-ae60-43c9-b0f7-bd14d9f7d362" />
-
-## Fitur
-
-- **Bootloader kustom** (512 bytes) yang memuat kernel dari disk
-- **Protected mode** (32-bit)
-- **VGA text mode** dengan dukungan warna
-- **Shell interaktif** sederhana dengan command handling
-- **Keyboard input** (polling mode)
-
-## Struktur File
-
-```
-AkromOS/
-├── boot.asm           # Bootloader (16-bit real mode → 32-bit protected mode)
-├── kernel_entry.asm   # Entry point kernel
-├── kernel.c           # Kernel utama (C)
-├── linker.ld          # Linker script
-├── Makefile           # Build script
-└── README.md          # Dokumentasi ini
-etc
-```
-
-## Requirement
- ...
- 
-### Tools yang dibutuhkan:
-
-- **NASM** (Netwide Assembler)
-- **GCC** dengan dukungan cross-compilation untuk i686
-- **LD** (GNU Linker)
-- **QEMU** (untuk testing/emulasi)
-- **Make**
-
-### Install di Linux:
-
-```bash
-#Arch Base
-sudo pacman -S nasm gcc ld qemu-system-x86 make
-
-#Debian / Ubuntu / Base
-sudo apt install nasm gcc binutils qemu-system-x86 make
-
-#Gento
-sudo emerge --ask sys-devel/gcc sys-devel/binutils dev-lang/nasm app-emulation/qemu sys-devel/make
-
-#Fedora base
-sudo dnf install nasm gcc binutils qemu-system-x86 make
-
-#openSUSE
-sudo zypper install nasm gcc binutils qemu-x86 make
-
-#alphine linux
-sudo apk add nasm gcc binutils qemu-system-x86_64 make
-
-#Void linux
-sudo xbps-install -S nasm gcc binutils qemu make
-```
-
-Jika perlu cross-compiler:
-```bash
-sudo pacman -S i686-elf-gcc i686-elf-binutils
-```
-
-## Build Instructions
-```bash
-cd ~/your/path/AkromOS
-nasm -f bin boot.asm -o boot.bin 
-nasm -f bin kernel_simple.asm -o kernel_simple.bin
-cat boot.bin kernel_simple.bin > akromos.img
-truncate -s 1474560 akromos.img
-qemu-system-i386 -fda akromos.img
-```
-## jika anda pake Windows 11/10
-1️⃣ Install MSYS2
-
-Download:
-https://www.msys2.org
-
-2️⃣ Buka MSYS2 MinGW64
-```bash
-pacman -Syu
-
-#after that
-pacman -S \
-  mingw-w64-x86_64-gcc \
-  mingw-w64-x86_64-nasm \
-  mingw-w64-x86_64-binutils \
-  mingw-w64-x86_64-qemu \
-  make
-
-```
-## Commands yang tersedia
-
-Setelah boot, AkromOS akan menampilkan shell prompt (`$`). Commands yang tersedia:
-
-- `help` - Menampilkan daftar command
-- `clear` - Clear screen
-- `about` - Informasi tentang AkromOS
-- `echo [text]` - Echo text yang diinput
-
-## Cara Kerja
-
-### Boot Process:
-
-1. **BIOS** memuat bootloader (boot.asm) ke memori 0x7C00
-2. **Bootloader** memuat kernel dari disk sector 2-11 ke memori 0x1000
-3. **Enable A20 line** untuk akses memori extended
-4. **Load GDT** (Global Descriptor Table)
-5. **Switch ke protected mode** (32-bit)
-6. **Jump ke kernel entry point** (kernel_entry.asm)
-7. **Kernel** memanggil fungsi `kmain()` di kernel.c
-8. **Shell** dimulai dan menunggu input user
-
-### Memory Layout:
-
-```
-0x00000000 - 0x000003FF : Interrupt Vector Table
-0x00000400 - 0x000004FF : BIOS Data Area
-0x00007C00 - 0x00007DFF : Bootloader (512 bytes)
-0x00001000 - 0x0000FFFF : Kernel
-0x000B8000 - 0x000BFFFF : VGA Text Buffer
-0x00090000 - ...        : Stack
-```
-
-## Troubleshooting
-
-### Error: `command not found`
-Pastikan semua tools sudah terinstall (nasm, gcc, ld, make, qemu).
-
-### Error saat compile dengan GCC
-Gunakan flag `-m32` dan pastikan GCC mendukung 32-bit compilation:
-```bash
-gcc -m32 --version
-```
-
-Jika tidak support, install `gcc-multilib` atau gunakan cross-compiler `i686-elf-gcc`.
-
-### OS tidak boot di QEMU
-- Pastikan `akromos.img` terbuat dengan benar
-- Cek bootloader signature (0xAA55) ada di byte terakhir boot sector
-- Jalankan dengan `-d int` untuk debug: `qemu-system-i386 -fda akromos.img`
-
-## Pengembangan Lanjutan
-
-Ideas untuk pengembangan:
-
-- Implementasi interrupt handlers (IDT)
-- Memory management (paging, heap allocation)
-- Filesystem driver (FAT12/FAT16)
-- Multi-tasking / process management
-- Device drivers (timer, disk, network)
-- System calls
-- User mode programs
-
-## Resources
-
-- [OSDev Wiki](https://wiki.osdev.org/)
-- [Intel x86 Manual](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
-- [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/index.php)
-
-## License
-
-Free to use and modify for educational purposes.
+**Akryon OS** adalah sistem operasi hybrid modern yang dibangun dari awal (*from scratch*) untuk arsitektur **x86 (32-bit Protected Mode)** dengan menggabungkan keandalan **C & Assembly** pada level *Hardware Abstraction Layer (HAL)* dan keamanan memori serta kekuatan sistemik **Rust (`no_std`)** pada level *Kernel Core & Shell Subsystem*.
 
 ---
 
-**AkromOS v1.0** - A minimal operating system for learning OS development
+## 🌟 Arsitektur & Desain Sistem
+
+```
+                              +-----------------------------+
+                              |        Akryon Shell         |
+                              |  (Rust Interactive Console) |
+                              +-----------------------------+
+                                             |
+                              +-----------------------------+
+                              |      Rust Kernel Core       |
+                              | (no_std, Format, Commands)  |
+                              +-----------------------------+
+                                             |  (FFI Bridge)
+                              +-----------------------------+
+                              |    C HAL & Device Drivers   |
+                              | (GDT, IDT, PIC, PIT, Serial)|
+                              +-----------------------------+
+                                             |
+                              +-----------------------------+
+                              |    Assembly Glue & MBR      |
+                              | (boot.asm, kernel_entry.asm)|
+                              +-----------------------------+
+                                             |
+                              +-----------------------------+
+                              |     Bare-Metal Hardware     |
+                              +-----------------------------+
+```
+
+### 1. Bootloader & Low-Level Assembly (`boot/`)
+- **`boot/boot.asm`**: MBR Bootloader (512 bytes) yang membaca kernel menggunakan BIOS LBA Extended Read (`int 0x13, AH=0x42`) dengan chunk buffer 64-sektor dan fallback CHS. Mengaktifkan Fast A20 Gate, memuat Flat 32-bit GDT, dan beralih ke 32-bit Protected Mode.
+- **`boot/kernel_entry.asm`**: Entry point 32-bit mode (`0x10000`), inisialisasi stack di `0x90000`, mengaktifkan unit FPU/SSE (CR0/CR4), serta menyediakan assembly trampoline stubs untuk 32 Exception Vectors (ISR 0–31) dan 16 Hardware IRQ (IRQ 0–15).
+
+### 2. Hardware Abstraction Layer / HAL (`hal/`)
+- **`hal/io.h` & `hal/io.c`**: Primitif Port I/O x86 (`inb`, `outb`, `inw`, `outw`, `cli`, `sti`, `hlt`).
+- **`hal/vga.h` & `hal/vga.c`**: Driver VGA text-mode 80x25 buffer (`0xB8000`), manajemen warna foreground & background, auto-scroll, dan update hardware cursor CRT controller (`0x3D4`/`0x3D5`).
+- **`hal/gdt.h` & `hal/gdt.c`**: Global Descriptor Table dengan Kernel Code (`0x08`), Kernel Data (`0x10`), User Code (`0x18`), dan User Data (`0x20`).
+- **`hal/idt.h`, `hal/idt.c`, `hal/isr.h`, `hal/isr.c`**: Interrupt Descriptor Table 256 gates, PIC 8259 Remapping (Master IRQ 0..7 $\rightarrow$ 32..39, Slave IRQ 8..15 $\rightarrow$ 40..47), serta CPU exception & IRQ dispatcher.
+- **`hal/timer.h` & `hal/timer.c`**: PIT 8254 Channel 0 pada frekuensi 100Hz (10ms per tick), penghitung uptime dan fungsi delay/sleep.
+- **`hal/keyboard.h` & `hal/keyboard.c`**: Driver Keyboard PS/2 berbasis interrupt (IRQ 1) dengan circular ring buffer, pemetaan Scancode Set 1 (US QWERTY), Shift modifier, CapsLock, dan keypad.
+- **`hal/serial.h` & `hal/serial.c`**: Driver UART 16550 Serial Port (COM1 `0x3F8` @ 38400 baud) untuk kernel logging dan debugging.
+
+### 3. Rust Core & Shell Subsystem (`rust/`)
+- **`rust/src/lib.rs`**: `#![no_std]` Rust entry point (`akryon_rust_main`), banner boot ASCII, dan panic handler kustom berlatar belakang merah saat terjadi panic tak tertangani.
+- **`rust/src/vga.rs`**: Safe VGA writer yang mengimplementasikan `core::fmt::Write`, menyediakan macro `print!`, `println!`, dan `print_colored!`.
+- **`rust/src/serial.rs`**: Safe Serial logger yang mengimplementasikan macro `log!` dan `logln!`.
+- **`rust/src/shell.rs`**: Interactive line editor dengan prompt `akryon> `, backspace handling, dan eksekusi perintah.
+- **`rust/src/commands.rs`**: Perintah-perintah interaktif bawaan.
+
+---
+
+## 💻 Daftar Perintah Shell
+
+| Perintah | Deskripsi |
+|---|---|
+| `help` | Menampilkan panduan dan daftar perintah yang tersedia |
+| `clear` | Membersihkan layar dan menampilkan kembali banner Akryon |
+| `about` | Menampilkan informasi arsitektur hybrid C & Rust OS |
+| `sysinfo` | Menampilkan mode CPU, pointer stack, status interrupt, dan timer ticks |
+| `uptime` | Menampilkan waktu aktif sistem sejak proses boot |
+| `echo <text>` | Mencetak kembali teks yang diinput |
+| `color <fg> <bg>` | Mengganti warna console secara dinamis (0..15) |
+| `calc <a op b>` | Kalkulator aritmatika integer (contoh: `calc 42 + 58`, `calc 100 * 5`) |
+| `panic [pesan]` | Memicu Rust Kernel Panic untuk demonstrasi crash handler |
+| `reboot` | Melakukan soft reboot CPU |
+
+---
+
+## 📁 Struktur Direktori
+
+```
+Akryon/
+├── boot/
+│   ├── boot.asm             # MBR Bootloader (16-bit real mode -> 32-bit protected mode)
+│   └── kernel_entry.asm     # 32-bit Entry point, FPU/SSE setup & ISR stubs
+├── hal/
+│   ├── types.h              # Freestanding primitive typedefs & memory prototypes
+│   ├── string.c             # Implementasi freestanding memcpy, memset, memcmp, bcmp, strlen
+│   ├── io.h / io.c          # Port I/O wrappers (inb, outb, inw, outw, cli, sti, hlt)
+│   ├── vga.h / vga.c        # Driver VGA Text Console 80x25
+│   ├── gdt.h / gdt.c        # Global Descriptor Table (GDT)
+│   ├── idt.h / idt.c        # Interrupt Descriptor Table (IDT) & PIC 8259 Remap
+│   ├── isr.h / isr.c        # Interrupt Service Routines & Exception handlers
+│   ├── timer.h / timer.c    # PIT (Programmable Interval Timer) 100Hz
+│   ├── keyboard.h / keyboard.c # Driver PS/2 Keyboard dengan ring buffer
+│   ├── serial.h / serial.c  # Driver UART 16550 Serial COM1
+│   └── hal.h                # Unified HAL Master Header
+├── kernel/
+│   └── kmain.c              # C Kernel initialization & Rust bridge
+├── rust/
+│   ├── Cargo.toml           # Konfigurasi Rust package
+│   └── src/
+│       ├── lib.rs           # Rust kernel entry, panic handler, banner
+│       ├── vga.rs           # Safe VGA writer & print! macros
+│       ├── serial.rs        # Safe Serial logger & log! macros
+│       ├── shell.rs         # Interactive line-buffered shell
+│       └── commands.rs      # Command interpreter engine
+├── linker.ld                # Linker script (dimuat di 0x10000)
+├── Makefile                 # Build system modular
+└── README.md                # Dokumentasi proyek ini
+```
+
+---
+
+## 🛠️ Prasyarat & Instalasi Toolchain
+
+### Di Linux (Arch Linux / Debian / Ubuntu / Fedora)
+- **NASM** (`nasm`)
+- **GCC** (`gcc`)
+- **GNU Binutils** (`ld`, `objcopy`)
+- **Rust Toolchain** (`rustc`, `cargo` dengan target `i686-unknown-linux-gnu`)
+- **QEMU** (`qemu-system-i386`)
+- **Make** (`make`)
+
+```bash
+# Arch Linux
+sudo pacman -S nasm gcc binutils qemu-system-x86 make rust
+
+# Debian / Ubuntu
+sudo apt install nasm gcc-multilib binutils qemu-system-x86 make rustc cargo
+
+# Target Rust untuk 32-bit x86
+rustup target add i686-unknown-linux-gnu
+```
+
+---
+
+## 🚀 Cara Build & Menjalankan
+
+### 1. Build OS Image
+```bash
+make clean
+make
+```
+Perintah ini akan mengkompilasi bootloader NASM, HAL C, Rust static library, melakukan linking via `ld`, dan membuat file disk image `akryon.img`.
+
+### 2. Menjalankan di QEMU
+```bash
+# Menjalankan dengan GUI Display QEMU
+make run
+
+# Menjalankan dengan output serial terhubung ke terminal stdio
+make run-serial
+
+# Menjalankan dalam mode Curses text console di terminal
+make run-curses
+```
+
+### 3. Debugging dengan GDB
+```bash
+make debug
+```
+QEMU akan menunggu koneksi GDB pada port `localhost:1234`. Di terminal lain, jalankan:
+```bash
+gdb -ex "target remote localhost:1234" -ex "symbol-file build/kernel.elf"
+```
+
+---
+
+## 📜 Lisensi
+Bebas digunakan, dimodifikasi, dan dikembangkan untuk keperluan edukasi dan eksplorasi pengembangan sistem operasi.
