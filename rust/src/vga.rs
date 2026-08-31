@@ -5,7 +5,10 @@ extern "C" {
     fn vga_clear();
     fn vga_set_color(fg: u8, bg: u8);
     fn vga_backspace();
+    fn vga_set_cursor(x: usize, y: usize);
+    fn vga_get_cursor(x: *mut usize, y: *mut usize);
 }
+
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +85,28 @@ pub fn backspace() {
         vga_backspace();
     }
 }
+
+pub fn get_cursor() -> (usize, usize) {
+    let mut x: usize = 0;
+    let mut y: usize = 0;
+    unsafe {
+        vga_get_cursor(&mut x, &mut y);
+    }
+    (x, y)
+}
+
+pub fn set_cursor(x: usize, y: usize) {
+    unsafe {
+        vga_set_cursor(x, y);
+    }
+}
+
+pub fn putchar(c: u8) {
+    unsafe {
+        vga_putchar(c);
+    }
+}
+
 
 pub fn print_fmt(args: fmt::Arguments) {
     let mut writer = VgaWriter;
