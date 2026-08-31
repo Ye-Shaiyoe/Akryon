@@ -1,0 +1,36 @@
+name: Bug Report
+description: Laporkan bug atau kendala pada Akryon OS
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Terima kasih sudah meluangkan waktu melaporkan bug!
+  - type: textarea
+    id: description
+    attributes:
+      label: Deskripsi Masalah
+      description: Jelaskan apa yang terjadi secara rinci.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Langkah Reproduksi Masalah
+      description: Perintah apa yang diketik atau langkah apa yang dilakukan?
+      placeholder: |
+        1. make run
+        2. Ketik perintah '...' di shell
+        3. Kernel crash/freeze
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Lingkungan Pengujian
+      description: Sebutkan versi QEMU, OS Host (Ubuntu, Arch, macOS, dll), dan toolchain yang digunakan.
+      placeholder: |
+        - OS Host: Ubuntu 24.04
+        - QEMU version: 8.2.2
+        - GCC / NASM / Rustc version:
+    validations:
+      required: true

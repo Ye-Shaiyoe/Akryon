@@ -1,0 +1,48 @@
+name: Akryon OS CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build & Verify OS Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install C & Assembly Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm gcc-multilib build-essential qemu-system-x86
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: i686-unknown-linux-gnu
+          components: rustfmt, clippy
+
+      - name: Check Rust Formatting
+        run: |
+          cd rust
+          cargo fmt --check
+
+      - name: Build Akryon OS Image
+        run: |
+          make clean
+          make
+
+      - name: Verify OS Image
+        run: |
+          ls -lh akryon.img
+          test -f akryon.img
+
+      - name: Upload OS Disk Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: akryon-disk-image
+          path: akryon.img

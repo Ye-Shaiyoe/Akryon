@@ -1,0 +1,37 @@
+# Build Artifacts & Binaries
+build/
+*.o
+*.bin
+*.elf
+*.a
+*.so
+
+# OS Disk Images & ISO
+*.img
+*.iso
+akryon.img
+akromos.img
+
+# Rust Target & Artifacts
+rust/target/
+**/target/
+Cargo.lock.bak
+**/*.rs.bk
+
+# QEMU / Emulation Logs & Dumps
+qemu.log
+serial.log
+bochsout.txt
+*.vmdk
+
+# IDE, Editor & OS specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Scratch / Temp Files
+scratch/

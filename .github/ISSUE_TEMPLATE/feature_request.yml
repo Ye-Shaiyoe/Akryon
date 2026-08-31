@@ -1,0 +1,22 @@
+name: Feature Request
+description: Ajukan ide fitur, driver baru, atau peningkatan sistem untuk Akryon OS
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Punya ide seru untuk Akryon OS? Beritahu kami!
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Deskripsi Fitur
+      description: Jelaskan fitur atau kapabilitas baru yang ingin ditambahkan.
+    validations:
+      required: true
+  - type: textarea
+    id: architecture-impact
+    attributes:
+      label: Komponen yang Terdampak
+      description: Apakah fitur ini menyangkut Bootloader, C HAL Driver, Memory Management, atau Rust Shell?
+      placeholder: Contoh: Driver Disk ATA/IDE di C HAL dan command filesystem di Rust.
+    validations:
+      required: false
