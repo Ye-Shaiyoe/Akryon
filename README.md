@@ -3,6 +3,9 @@
 **Akryon** adalah sistem operasi hybrid modern yang dibangun dari awal (*from scratch*) untuk arsitektur **x86 (32-bit Protected Mode)** dengan menggabungkan keandalan **C & Assembly** pada level *Hardware Abstraction Layer (HAL)* dan keamanan memori serta kekuatan sistemik **Rust (`no_std`)** pada level *Kernel Core & Shell Subsystem*.
 
 ---
+## Preview
+
+<img width="646" height="376" alt="screenshot-2026-09-03_23 50 16" src="https://github.com/user-attachments/assets/2b761484-a1d0-4dc4-80d7-b7588ebf40b8" />
 
 ## 🌟 Arsitektur & Desain Sistem
 
@@ -95,7 +98,7 @@ Akryon/
 ├── rust/
 │   ├── Cargo.toml           # Konfigurasi Rust package
 │   └── src/
-│       ├── lib.rs           # Rust kernel entry, panic handler, banner
+│       ├── lib.rs          install discord di arch linux # Rust kernel entry, panic handler, banner
 │       ├── vga.rs           # Safe VGA writer & print! macros
 │       ├── serial.rs        # Safe Serial logger & log! macros
 │       ├── shell.rs         # Interactive line-buffered shell
