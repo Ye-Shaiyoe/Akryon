@@ -77,6 +77,12 @@ pub fn alloc_frame() -> Option<usize> {
     }
 }
 
+pub fn reserve_frame(addr: usize) {
+    unsafe {
+        set_frame_raw(addr);
+    }
+}
+
 pub fn free_frame(addr: usize) {
     unsafe {
         free_frame_raw(addr);
