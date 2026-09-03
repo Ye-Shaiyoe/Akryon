@@ -7,7 +7,7 @@
 [ORG 0x7C00]
 
 KERNEL_START_SEG equ 0x1000      ; 0x1000:0x0000 -> Physical 0x10000 (64 KB)
-TOTAL_SECTORS    equ 440         ; Total sektor kernel (220 KB)
+TOTAL_SECTORS    equ 800         ; Total sektor kernel (400 KB)
 CHUNK_SECTORS    equ 64          ; Baca dalam chunk 64 sektor (32 KB) per int 0x13
 
 start:

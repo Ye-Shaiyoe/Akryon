@@ -65,6 +65,14 @@ pub extern "C" fn akryon_rust_main() -> ! {
 
     let heap_size = 4 * 1024 * 1024;
     let heap_start = (k_end + 4095) & !4095;
+    let heap_end = heap_start + heap_size;
+
+    let heap_start_page = heap_start / pmm::PAGE_SIZE;
+    let heap_end_page = heap_end / pmm::PAGE_SIZE;
+    for page in heap_start_page..heap_end_page {
+        pmm::reserve_frame(page * pmm::PAGE_SIZE);
+    }
+
     unsafe {
         ALLOCATOR.init(heap_start, heap_size);
     }
@@ -95,8 +103,19 @@ pub extern "C" fn akryon_rust_main() -> ! {
     print_colored!(Color::LightCyan, Color::Black, "[INFO] ");
     println!("Type 'help' for available commands or 'about' for details.\n");
 
-    logln!("[Akryon Kernel] Rust core initialized. Memory: total {} KB, free {} KB",
-           pmm::total_memory() / 1024, pmm::free_memory() / 1024);
+    logln!("[Akryon Kernel] Rust core initialized.");
+    crate::serial::log_mem(pmm::total_memory() / 1024, pmm::free_memory() / 1024);
+
+    let test_msg = "POSIX syscall test verified at boot.\n";
+    unsafe {
+        core::arch::asm!(
+            "int 0x80",
+            in("eax") 4u32, // SYS_WRITE
+            in("ebx") 1u32, // fd 1
+            in("ecx") test_msg.as_ptr() as u32,
+            in("edx") test_msg.len() as u32,
+        );
+    }
 
     shell::run_shell();
 }

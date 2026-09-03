@@ -73,6 +73,7 @@ fn sys_write(fd: i32, buf: *const u8, count: usize) -> i32 {
         let slice = unsafe { core::slice::from_raw_parts(buf, count) };
         if let Ok(s) = core::str::from_utf8(slice) {
             crate::print!("{}", s);
+            crate::log!("[Syscall stdout] {}", s);
             return count as i32;
         } else {
             for &b in slice {
