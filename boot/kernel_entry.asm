@@ -8,6 +8,8 @@
 global _start
 global load_gdt_asm
 global load_idt_asm
+global tss_flush_asm
+global isr128
 global isr0, isr1, isr2, isr3, isr4, isr5, isr6, isr7
 global isr8, isr9, isr10, isr11, isr12, isr13, isr14, isr15
 global isr16, isr17, isr18, isr19, isr20, isr21, isr22, isr23
@@ -85,9 +87,20 @@ load_idt_asm:
     lidt [eax]
     ret
 
-; ------------------------------------------------------------------------------
+tss_flush_asm:
+    mov ax, 0x28 | 3            ; Index 5 in GDT (0x28), RPL 3
+    ltr ax
+    ret
+
+; ISR 128 (0x80 System Call)
+isr128:
+    push 0                      ; Dummy error code
+    push 128                    ; Interrupt vector 128
+    jmp isr_common_stub
+
+
 ; ISR Exception Macros
-; ------------------------------------------------------------------------------
+
 %macro ISR_NOERRCODE 1
     global isr%1
     isr%1:

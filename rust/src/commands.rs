@@ -1,5 +1,5 @@
 use crate::vga::{self, Color};
-use crate::{println, print_colored, logln};
+use crate::{print, println, print_colored, logln};
 
 extern "C" {
     fn timer_get_ticks() -> u32;
@@ -25,7 +25,13 @@ pub fn handle_command(cmd: &str) {
         "clear" => cmd_clear(),
         "about" => cmd_about(),
         "sysinfo" => cmd_sysinfo(),
+        "free" | "meminfo" => cmd_free(),
         "uptime" => cmd_uptime(),
+        "ls" => cmd_ls(),
+        "cat" => cmd_cat(args),
+        "touch" => cmd_touch(args),
+        "write" => cmd_write(args),
+        "syscall" => cmd_syscall_test(),
         "echo" => cmd_echo(args),
         "color" => cmd_color(args),
         "calc" => cmd_calc(args),
@@ -39,37 +45,154 @@ pub fn handle_command(cmd: &str) {
 }
 
 fn cmd_help() {
-    print_colored!(Color::LightCyan, Color::Black, "==================== [ AKRYON COMMANDS ] ====================\n");
+    print_colored!(Color::LightCyan, Color::Black, "Commands:\n");
     println!("  help              - Display this help reference");
-    println!("  clear             - Clear screen and display Akryon banner");
-    println!("  about             - System information & hybrid C+Rust architecture");
-    println!("  sysinfo           - Display hardware, ticks, and kernel status");
-    println!("  uptime            - Display system uptime since boot");
+    println!("  clear             - Clear screen");
+    println!("  about             - System information");
+    println!("  sysinfo           - Display hardware and CPU status");
+    println!("  free / meminfo    - Display physical memory and allocator status");
+    println!("  uptime            - Display system uptime");
+    println!("  ls                - List files in virtual filesystem (VFS)");
+    println!("  cat <file>        - Display contents of a file");
+    println!("  touch <file>      - Create empty file");
+    println!("  write <file> <tx> - Write text to a file");
+    println!("  syscall           - Test Unix int 0x80 system call");
     println!("  echo <text>       - Print text to screen");
     println!("  color <fg> <bg>   - Change console color (0..15)");
-    println!("  calc <a op b>     - Integer calculator (e.g. 'calc 42 + 58')");
-    println!("  panic [msg]       - Trigger Rust Kernel Panic test");
+    println!("  calc <a op b>     - Integer calculator");
+    println!("  panic [msg]       - Trigger Rust Kernel Panic");
     println!("  reboot            - Restart the computer");
-    print_colored!(Color::LightCyan, Color::Black, "=============================================================\n");
+}
+
+fn cmd_ls() {
+    let files = crate::vfs::list_files();
+    print_colored!(Color::LightCyan, Color::Black, "VFS Files:\n");
+    if files.is_empty() {
+        println!("  (empty)");
+        return;
+    }
+    for (name, size) in files {
+        println!("  {:<16} {} bytes", name, size);
+    }
+}
+
+fn cmd_cat(args: &str) {
+    let file = args.trim();
+    if file.is_empty() {
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("cat <filename>");
+        return;
+    }
+
+    match crate::vfs::read_file(file) {
+        Some(data) => {
+            if let Ok(s) = core::str::from_utf8(&data) {
+                print!("{}", s);
+                if !s.ends_with('\n') {
+                    println!("");
+                }
+            } else {
+                for b in data {
+                    print!("{:02X} ", b);
+                }
+                println!("");
+            }
+        }
+        None => {
+            print_colored!(Color::LightRed, Color::Black, "Error: ");
+            println!("File '{}' not found", file);
+        }
+    }
+}
+
+fn cmd_touch(args: &str) {
+    let file = args.trim();
+    if file.is_empty() {
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("touch <filename>");
+        return;
+    }
+
+    if let Err(_) = crate::vfs::write_file(file, b"") {
+        print_colored!(Color::LightRed, Color::Black, "Error: ");
+        println!("Failed to create file '{}'", file);
+    }
+}
+
+fn cmd_write(args: &str) {
+    let mut parts = args.trim().splitn(2, ' ');
+    let file = parts.next().unwrap_or("");
+    let text = parts.next().unwrap_or("");
+
+    if file.is_empty() {
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("write <filename> <content>");
+        return;
+    }
+
+    let mut data = alloc::vec::Vec::new();
+    data.extend_from_slice(text.as_bytes());
+    data.push(b'\n');
+
+    if let Err(_) = crate::vfs::write_file(file, &data) {
+        print_colored!(Color::LightRed, Color::Black, "Error: ");
+        println!("Failed to write to file '{}'", file);
+    }
+}
+
+fn cmd_syscall_test() {
+    print_colored!(Color::LightCyan, Color::Black, "Testing Unix System Call (int 0x80)...\n");
+
+    let msg = "Hello from Unix sys_write via int 0x80!\n";
+    let ret: i32;
+
+    unsafe {
+        core::arch::asm!(
+            "int 0x80",
+            inlateout("eax") 4u32 => ret, // SYS_WRITE
+            in("ebx") 1u32,             // fd = 1 (stdout)
+            in("ecx") msg.as_ptr() as u32,
+            in("edx") msg.len() as u32,
+        );
+    }
+
+    println!("Syscall return value (bytes written): {}", ret);
+
+    let pid: i32;
+    unsafe {
+        core::arch::asm!(
+            "int 0x80",
+            inlateout("eax") 20u32 => pid, // SYS_GETPID
+            in("ebx") 0u32,
+            in("ecx") 0u32,
+            in("edx") 0u32,
+        );
+    }
+    println!("Current PID from sys_getpid: {}", pid);
+}
+
+fn cmd_free() {
+
+    let total = crate::pmm::total_memory() / 1024;
+    let used = crate::pmm::used_memory() / 1024;
+    let free = crate::pmm::free_memory() / 1024;
+
+    print_colored!(Color::LightCyan, Color::Black, "Memory Info:\n");
+    println!("  Total : {} KB ({} MB)", total, total / 1024);
+    println!("  Used  : {} KB ({} MB)", used, used / 1024);
+    println!("  Free  : {} KB ({} MB)", free, free / 1024);
 }
 
 fn cmd_clear() {
     vga::clear_screen();
-    print_colored!(Color::LightCyan, Color::Black, "=============================================================\n");
-    print_colored!(Color::LightGreen, Color::Black, "        Akryon OS v2.0 - Hybrid C & Rust Operating System     \n");
-    print_colored!(Color::LightCyan, Color::Black, "=============================================================\n\n");
+    print_colored!(Color::LightGreen, Color::Black, "Akryon OS - Unix-like Hybrid C & Rust Operating System\n\n");
 }
 
 fn cmd_about() {
-    print_colored!(Color::LightGreen, Color::Black, "Akryon OS v2.0 (Hybrid Architecture)\n");
-    println!("-------------------------------------------------------------");
-    println!("* Architecture    : x86 (32-bit Protected Mode)");
-    println!("* Low-Level HAL   : C & Assembly (NASM)");
-    println!("  - Drivers       : GDT, IDT (PIC 8259), PIT 8254, PS/2 KBD, UART 16550");
-    println!("* Core & Shell    : Rust (no_std, Safe Formatted I/O, Command Engine)");
-    println!("* Bootloader      : Custom 512B MBR + Stage 2 Loader");
-    println!("* Status          : Running natively on bare-metal / QEMU");
-    println!("-------------------------------------------------------------");
+    println!("Architecture : x86 (32-bit Protected Mode)");
+    println!("Kernel Core  : Rust (no_std, alloc, physical memory & heap)");
+    println!("HAL Drivers  : C / Assembly (GDT, IDT, PIC, PIT, PS/2, UART)");
+    println!("Target Model : Unix-like OS with POSIX roadmap");
 }
 
 fn cmd_sysinfo() {
@@ -82,14 +205,13 @@ fn cmd_sysinfo() {
         core::arch::asm!("mov {}, esp", out(reg) esp_val);
     }
 
-    print_colored!(Color::LightCyan, Color::Black, "--- [ System Status ] ---\n");
-    println!("  CPU Mode     : 32-bit Protected Mode (Flat Memory)");
+    print_colored!(Color::LightCyan, Color::Black, "System Status:\n");
+    println!("  CPU Mode     : 32-bit Protected Mode");
     println!("  Stack Pointer: 0x{:X}", esp_val);
-    println!("  PIT Ticks    : {} (100 Hz frequency)", ticks);
+    println!("  PIT Ticks    : {} (100 Hz)", ticks);
     println!("  Uptime       : {} seconds ({} ms)", uptime_sec, uptime_ms);
-    println!("  Memory Model : 4GB Flat Address Space (0x00000000 - 0xFFFFFFFF)");
-    println!("  Interrupts   : Enabled (IDT vectors 0..47 active)");
-    println!("  Serial Port  : COM1 (0x3F8 @ 38400 baud active)");
+    println!("  Interrupts   : Enabled (IDT vectors 0..47)");
+    println!("  Serial COM1  : 0x3F8 @ 38400 baud");
 }
 
 fn cmd_uptime() {

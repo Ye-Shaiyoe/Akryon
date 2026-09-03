@@ -9,6 +9,11 @@ pub struct SerialWriter;
 impl Write for SerialWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for byte in s.bytes() {
+            if byte == b'\n' {
+                unsafe {
+                    serial_putchar(b'\r');
+                }
+            }
             unsafe {
                 serial_putchar(byte);
             }

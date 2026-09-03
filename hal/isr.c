@@ -50,10 +50,9 @@ void isr_handler(registers_t* regs) {
         return;
     }
 
-    // Unhandled CPU Exception -> Kernel Panic
     vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_RED);
-    vga_puts("\n\n==================== [ AKRYON KERNEL PANIC ] ====================\n");
-    vga_puts(" CPU Exception: ");
+    vga_puts("\n[CPU EXCEPTION PANIC]\n");
+    vga_puts("Exception: ");
     if (regs->int_no < 32) {
         vga_puts(exception_messages[regs->int_no]);
     } else {
@@ -65,23 +64,22 @@ void isr_handler(registers_t* regs) {
     vga_puthex(regs->err_code);
     vga_puts(")\n");
 
-    vga_puts(" EIP: "); vga_puthex(regs->eip);
+    vga_puts("EIP: "); vga_puthex(regs->eip);
     vga_puts(" CS: ");  vga_puthex(regs->cs);
     vga_puts(" EFLAGS: "); vga_puthex(regs->eflags);
     vga_puts("\n");
 
-    vga_puts(" EAX: "); vga_puthex(regs->eax);
+    vga_puts("EAX: "); vga_puthex(regs->eax);
     vga_puts(" EBX: "); vga_puthex(regs->ebx);
     vga_puts(" ECX: "); vga_puthex(regs->ecx);
     vga_puts(" EDX: "); vga_puthex(regs->edx);
     vga_puts("\n");
 
-    vga_puts(" ESP: "); vga_puthex(regs->esp);
+    vga_puts("ESP: "); vga_puthex(regs->esp);
     vga_puts(" EBP: "); vga_puthex(regs->ebp);
     vga_puts(" ESI: "); vga_puthex(regs->esi);
     vga_puts(" EDI: "); vga_puthex(regs->edi);
-    vga_puts("\n=================================================================\n");
-    vga_puts("System halted. Please reset the computer.");
+    vga_puts("\nSystem halted. Please reset.\n");
 
     cli();
     while (1) {

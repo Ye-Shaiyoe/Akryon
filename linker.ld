@@ -9,8 +9,8 @@ ENTRY(_start)
 
 SECTIONS
 {
-    /* Kernel dimuat di memori 0x10000 (64KB) oleh bootloader MBR */
     . = 0x10000;
+    kernel_start = .;
 
     .text : ALIGN(4K)
     {
@@ -38,6 +38,9 @@ SECTIONS
         *(.bss.*)
     }
 
+    . = ALIGN(4K);
+    kernel_end = .;
+
     /DISCARD/ :
     {
         *(.comment)
@@ -45,3 +48,4 @@ SECTIONS
         *(.note.*)
     }
 }
+
