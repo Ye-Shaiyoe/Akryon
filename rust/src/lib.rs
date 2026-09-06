@@ -11,6 +11,7 @@ pub mod pmm;
 pub mod heap;
 pub mod syscall;
 pub mod vfs;
+pub mod net;
 
 use core::panic::PanicInfo;
 use vga::Color;
@@ -79,6 +80,7 @@ pub extern "C" fn akryon_rust_main() -> ! {
 
     syscall::init();
     vfs::init();
+    net::init();
 
     print_colored!(Color::LightCyan, Color::Black, "    ___    __                            ____  _____\n");
     print_colored!(Color::LightCyan, Color::Black, "   /   |  / /___________  ______  ____  / __ \\/ ___/\n");
@@ -99,7 +101,7 @@ pub extern "C" fn akryon_rust_main() -> ! {
     print_colored!(Color::LightGreen, Color::Black, "[OK] ");
     println!("Unix System Calls (int 0x80) and VFS initialized.");
     print_colored!(Color::LightGreen, Color::Black, "[OK] ");
-    println!("Hardware components initialized successfully.");
+    println!("Hardware components & RTL8139 network initialized.");
     print_colored!(Color::LightCyan, Color::Black, "[INFO] ");
     println!("Type 'help' for available commands or 'about' for details.\n");
 
