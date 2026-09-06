@@ -39,6 +39,20 @@ void serial_puthex(uint32_t val) {
     }
 }
 
+void serial_puthex16(uint16_t val) {
+    const char hex_digits[] = "0123456789ABCDEF";
+    serial_puts("0x");
+    for (int i = 12; i >= 0; i -= 4) {
+        serial_putchar(hex_digits[(val >> i) & 0xF]);
+    }
+}
+
+void serial_puthex8(uint8_t val) {
+    const char hex_digits[] = "0123456789ABCDEF";
+    serial_putchar(hex_digits[(val >> 4) & 0xF]);
+    serial_putchar(hex_digits[val & 0xF]);
+}
+
 void serial_putdec(uint32_t val) {
     if (val == 0) {
         serial_putchar('0');

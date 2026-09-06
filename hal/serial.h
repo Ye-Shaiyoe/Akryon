@@ -9,6 +9,8 @@ int  serial_init(void);
 void serial_putchar(char c);
 void serial_puts(const char* str);
 void serial_puthex(uint32_t val);
+void serial_puthex16(uint16_t val);
+void serial_puthex8(uint8_t val);
 void serial_putdec(uint32_t val);
 
 #endif // AKRYON_HAL_SERIAL_H
