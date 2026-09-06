@@ -46,6 +46,8 @@ C_OBJS := $(BUILD_DIR)/string.o \
           $(BUILD_DIR)/timer.o \
           $(BUILD_DIR)/keyboard.o \
           $(BUILD_DIR)/serial.o \
+          $(BUILD_DIR)/pci.o \
+          $(BUILD_DIR)/rtl8139.o \
           $(BUILD_DIR)/kmain.o
 
 # Rust Source Files
@@ -93,6 +95,12 @@ $(BUILD_DIR)/keyboard.o: $(HAL_DIR)/keyboard.c $(HAL_DIR)/keyboard.h $(HAL_DIR)/
 $(BUILD_DIR)/serial.o: $(HAL_DIR)/serial.c $(HAL_DIR)/serial.h $(HAL_DIR)/io.h | $(BUILD_DIR)
 	$(CC) $(C_FLAGS) $< -o $@
 
+$(BUILD_DIR)/pci.o: $(HAL_DIR)/pci.c $(HAL_DIR)/pci.h $(HAL_DIR)/io.h | $(BUILD_DIR)
+	$(CC) $(C_FLAGS) $< -o $@
+
+$(BUILD_DIR)/rtl8139.o: $(HAL_DIR)/rtl8139.c $(HAL_DIR)/rtl8139.h $(HAL_DIR)/pci.h $(HAL_DIR)/isr.h $(HAL_DIR)/io.h | $(BUILD_DIR)
+	$(CC) $(C_FLAGS) $< -o $@
+
 # 4. Build C Kernel Main
 $(BUILD_DIR)/kmain.o: $(KERN_DIR)/kmain.c $(HAL_DIR)/hal.h | $(BUILD_DIR)
 	$(CC) $(C_FLAGS) $< -o $@
@@ -115,21 +123,23 @@ $(OS_IMAGE): $(BOOT_BIN) $(KERNEL_BIN)
 	truncate -s 1474560 $(OS_IMAGE)
 	@echo "\n>>> Akryon OS Image successfully built: $(OS_IMAGE) (1.44 MB) <<<\n"
 
+QEMU_NET := -netdev user,id=net0 -device rtl8139,netdev=net0
+
 # Run in QEMU (GUI)
 run: $(OS_IMAGE)
-	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw
+	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw $(QEMU_NET)
 
 # Run in QEMU with Serial output directed to terminal stdio
 run-serial: $(OS_IMAGE)
-	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw -serial stdio
+	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw -serial stdio $(QEMU_NET)
 
 # Run in QEMU with Curses text console mode
 run-curses: $(OS_IMAGE)
-	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw -curses
+	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw -curses $(QEMU_NET)
 
 # Run in QEMU with GDB Debug Server (waiting on port 1234)
 debug: $(OS_IMAGE)
-	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw -s -S -serial stdio
+	qemu-system-i386 -drive file=$(OS_IMAGE),format=raw -s -S -serial stdio $(QEMU_NET)
 
 # Clean build artifacts
 clean:
