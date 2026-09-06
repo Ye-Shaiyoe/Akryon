@@ -35,6 +35,8 @@ pub fn handle_command(cmd: &str) {
         "echo" => cmd_echo(args),
         "color" => cmd_color(args),
         "calc" => cmd_calc(args),
+        "ifconfig" | "netinfo" => cmd_ifconfig(args),
+        "ping" => cmd_ping(args),
         "panic" => cmd_panic(args),
         "reboot" => cmd_reboot(),
         _ => {
@@ -60,6 +62,8 @@ fn cmd_help() {
     println!("  echo <text>       - Print text to screen");
     println!("  color <fg> <bg>   - Change console color (0..15)");
     println!("  calc <a op b>     - Integer calculator");
+    println!("  ifconfig [args]   - Display/configure network interface eth0");
+    println!("  ping <ip>         - Send ICMP echo requests to target host");
     println!("  panic [msg]       - Trigger Rust Kernel Panic");
     println!("  reboot            - Restart the computer");
 }
@@ -313,4 +317,100 @@ fn cmd_reboot() {
         core::arch::asm!("lidt [{}]", in(reg) null_idt.as_ptr());
         core::arch::asm!("int3");
     }
+}
+
+fn cmd_ifconfig(args: &str) {
+    let trimmed = args.trim();
+    if trimmed.starts_with("set ") {
+        let parts: alloc::vec::Vec<&str> = trimmed[4..].split_whitespace().collect();
+        if parts.len() == 3 {
+            let ip_opt = crate::net::parse_ip(parts[0]);
+            let mask_opt = crate::net::parse_ip(parts[1]);
+            let gw_opt = crate::net::parse_ip(parts[2]);
+
+            if let (Some(ip), Some(mask), Some(gw)) = (ip_opt, mask_opt, gw_opt) {
+                crate::net::update_config(ip, mask, gw);
+                print_colored!(Color::LightGreen, Color::Black, "[OK] ");
+                println!("Network eth0 updated: IP={}, Mask={}, Gateway={}",
+                    parts[0], parts[1], parts[2]);
+                println!("Configuration saved to /etc/network.conf in VFS.");
+                return;
+            }
+        }
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("ifconfig set <ip> <netmask> <gateway>");
+        println!("Example: ifconfig set 10.0.2.15 255.255.255.0 10.0.2.2");
+        return;
+    }
+
+    if !trimmed.is_empty() && trimmed != "eth0" {
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("ifconfig [eth0]");
+        println!("       ifconfig set <ip> <netmask> <gateway>");
+        return;
+    }
+
+    match crate::net::get_config() {
+        Some(cfg) => {
+            let (rx_pkts, tx_pkts, rx_bytes, tx_bytes) = crate::net::get_stats();
+            let status = if cfg.is_up { "UP, BROADCAST, RUNNING" } else { "DOWN" };
+
+            print_colored!(Color::LightCyan, Color::Black, "eth0: ");
+            println!("flags=<{}> mtu 1500", status);
+            println!("      inet {}  netmask {}  gateway {}",
+                crate::net::format_ip(&cfg.ip),
+                crate::net::format_ip(&cfg.netmask),
+                crate::net::format_ip(&cfg.gateway));
+            println!("      nameserver {}", crate::net::format_ip(&cfg.dns));
+            println!("      ether {} (Realtek RTL8139)", crate::net::format_mac(&cfg.mac));
+            println!("      RX packets {}  bytes {} ({})",
+                rx_pkts, rx_bytes, if rx_bytes < 1024 { "B" } else { "KB" });
+            println!("      TX packets {}  bytes {} ({})",
+                tx_pkts, tx_bytes, if tx_bytes < 1024 { "B" } else { "KB" });
+        }
+        None => {
+            print_colored!(Color::LightRed, Color::Black, "Error: ");
+            println!("Network interface eth0 unavailable.");
+        }
+    }
+}
+
+fn cmd_ping(args: &str) {
+    let host = args.trim();
+    if host.is_empty() {
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("ping <ip_address> (e.g. ping 10.0.2.2)");
+        return;
+    }
+
+    let target_ip = match crate::net::parse_ip(host) {
+        Some(ip) => ip,
+        None => {
+            print_colored!(Color::LightRed, Color::Black, "Error: ");
+            println!("Invalid IPv4 address format '{}'.", host);
+            return;
+        }
+    };
+
+    println!("PING {} ({}) 32 bytes of ICMP data:", host, host);
+
+    let mut transmitted = 0;
+    let mut received = 0;
+
+    for seq in 1..=4 {
+        transmitted += 1;
+        match crate::net::send_ping(target_ip, seq) {
+            Ok(rtt) => {
+                received += 1;
+                println!("32 bytes from {}: icmp_seq={} ttl=64 time={} ms", host, seq, rtt);
+            }
+            Err(e) => {
+                println!("From {}: icmp_seq={} {}", host, seq, e);
+            }
+        }
+    }
+
+    println!("\n--- {} ping statistics ---", host);
+    let loss = if transmitted > 0 { ((transmitted - received) * 100) / transmitted } else { 0 };
+    println!("{} packets transmitted, {} received, {}% packet loss", transmitted, received, loss);
 }
