@@ -25,7 +25,11 @@ void hal_init(void) {
     keyboard_init();
     serial_puts("[Akryon Kernel] PS/2 Keyboard driver initialized.\n");
 
-    // 7. Enable Interrupts (STI)
+    // 7. Initialize PCI Bus & RTL8139 Network Card
+    pci_init();
+    rtl8139_init();
+
+    // 8. Enable Interrupts (STI)
     sti();
     serial_puts("[Akryon Kernel] Hardware interrupts enabled (STI).\n");
 }
