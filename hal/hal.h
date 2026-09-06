@@ -9,6 +9,8 @@
 #include "timer.h"
 #include "keyboard.h"
 #include "serial.h"
+#include "pci.h"
+#include "rtl8139.h"
 
 void hal_init(void);
 
