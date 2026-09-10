@@ -81,6 +81,12 @@ pub fn set_color(fg: Color, bg: Color) {
     }
 }
 
+/// Build a VGA color byte: low nibble = fg, high nibble = bg.
+/// Matches `vga_make_color()` from hal/vga.h.
+pub fn make_color(fg: Color, bg: Color) -> u8 {
+    (fg as u8) | ((bg as u8) << 4)
+}
+
 pub fn clear_screen() {
     unsafe {
         vga_clear();
