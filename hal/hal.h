@@ -11,6 +11,7 @@
 #include "serial.h"
 #include "pci.h"
 #include "rtl8139.h"
+#include "rtc.h"
 
 void hal_init(void);
 
