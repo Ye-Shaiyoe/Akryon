@@ -6,6 +6,19 @@ extern "C" {
     fn timer_get_uptime_seconds() -> u32;
     fn timer_get_uptime_ms() -> u32;
     fn outb(port: u16, val: u8);
+    fn rtc_get_datetime(t: *mut RtcTime);
+}
+
+/// Mirror of hal/rtc.h rtc_time_t - must match C layout exactly.
+#[repr(C)]
+struct RtcTime {
+    second: u8,
+    minute: u8,
+    hour:   u8,
+    day:    u8,
+    month:  u8,
+    _pad:   u8,  // alignment padding to match uint16_t year
+    year:   u16,
 }
 
 pub fn handle_command(cmd: &str) {
@@ -36,9 +49,12 @@ pub fn handle_command(cmd: &str) {
         "color" => cmd_color(args),
         "calc" => cmd_calc(args),
         "ifconfig" | "netinfo" => cmd_ifconfig(args),
-        "ping" => cmd_ping(args),
-        "panic" => cmd_panic(args),
-        "reboot" => cmd_reboot(),
+        "ping"     => cmd_ping(args),
+        "date"     => cmd_date(),
+        "time"     => cmd_time(),
+        "mway"     => cmd_mway(args),
+        "panic"    => cmd_panic(args),
+        "reboot"   => cmd_reboot(),
         _ => {
             print_colored!(Color::LightRed, Color::Black, "Error: ");
             println!("Unknown command '{}'. Type 'help' for available commands.", command);
@@ -54,10 +70,13 @@ fn cmd_help() {
     println!("  sysinfo           - Display hardware and CPU status");
     println!("  free / meminfo    - Display physical memory and allocator status");
     println!("  uptime            - Display system uptime");
+    println!("  date              - Display current date from RTC/CMOS");
+    println!("  time              - Display current time from RTC/CMOS");
     println!("  ls                - List files in virtual filesystem (VFS)");
     println!("  cat <file>        - Display contents of a file");
     println!("  touch <file>      - Create empty file");
     println!("  write <file> <tx> - Write text to a file");
+    println!("  mway <file>       - Open full-screen text editor (Ctrl+S save, Ctrl+Q exit)");
     println!("  syscall           - Test Unix int 0x80 system call");
     println!("  echo <text>       - Print text to screen");
     println!("  color <fg> <bg>   - Change console color (0..15)");
@@ -414,3 +433,73 @@ fn cmd_ping(args: &str) {
     let loss = if transmitted > 0 { ((transmitted - received) * 100) / transmitted } else { 0 };
     println!("{} packets transmitted, {} received, {}% packet loss", transmitted, received, loss);
 }
+
+// ---------------------------------------------------------------------------
+// RTC / CMOS date & time commands
+// ---------------------------------------------------------------------------
+
+fn read_rtc() -> RtcTime {
+    let mut t = RtcTime {
+        second: 0,
+        minute: 0,
+        hour:   0,
+        day:    0,
+        month:  0,
+        _pad:   0,
+        year:   0,
+    };
+    unsafe { rtc_get_datetime(&mut t as *mut RtcTime); }
+    t
+}
+
+fn cmd_date() {
+    let t = read_rtc();
+    print_colored!(Color::LightCyan, Color::Black, "Date: ");
+    // Format: YYYY-MM-DD
+    print_padded2(t.year as u32, false);
+    print!("-");
+    print_padded2(t.month as u32, true);
+    print!("-");
+    print_padded2(t.day as u32, true);
+    println!("  (from RTC/CMOS)");
+}
+
+fn cmd_time() {
+    let t = read_rtc();
+    print_colored!(Color::LightCyan, Color::Black, "Time: ");
+    // Format: HH:MM:SS
+    print_padded2(t.hour as u32, true);
+    print!(":");
+    print_padded2(t.minute as u32, true);
+    print!(":");
+    print_padded2(t.second as u32, true);
+    println!("  (from RTC/CMOS)");
+}
+
+/// Print a number, zero-padded to 2 digits if `pad` is true.
+fn print_padded2(val: u32, pad: bool) {
+    if pad && val < 10 {
+        print!("0{}", val);
+    } else {
+        print!("{}", val);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mway - Full-screen text editor
+// ---------------------------------------------------------------------------
+
+fn cmd_mway(args: &str) {
+    let filename = args.trim();
+    if filename.is_empty() {
+        print_colored!(Color::LightRed, Color::Black, "Usage: ");
+        println!("mway <filename>");
+        println!("  Example: mway catatan.txt");
+        return;
+    }
+
+    logln!("[mway] Opening file: '{}'", filename);
+    crate::editor::open(filename);
+    logln!("[mway] Editor closed for: '{}'", filename);
+}
+
