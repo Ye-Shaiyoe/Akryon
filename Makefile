@@ -48,6 +48,7 @@ C_OBJS := $(BUILD_DIR)/string.o \
           $(BUILD_DIR)/serial.o \
           $(BUILD_DIR)/pci.o \
           $(BUILD_DIR)/rtl8139.o \
+          $(BUILD_DIR)/rtc.o \
           $(BUILD_DIR)/kmain.o
 
 # Rust Source Files
@@ -99,6 +100,9 @@ $(BUILD_DIR)/pci.o: $(HAL_DIR)/pci.c $(HAL_DIR)/pci.h $(HAL_DIR)/io.h | $(BUILD_
 	$(CC) $(C_FLAGS) $< -o $@
 
 $(BUILD_DIR)/rtl8139.o: $(HAL_DIR)/rtl8139.c $(HAL_DIR)/rtl8139.h $(HAL_DIR)/pci.h $(HAL_DIR)/isr.h $(HAL_DIR)/io.h | $(BUILD_DIR)
+	$(CC) $(C_FLAGS) $< -o $@
+
+$(BUILD_DIR)/rtc.o: $(HAL_DIR)/rtc.c $(HAL_DIR)/rtc.h $(HAL_DIR)/io.h | $(BUILD_DIR)
 	$(CC) $(C_FLAGS) $< -o $@
 
 # 4. Build C Kernel Main
