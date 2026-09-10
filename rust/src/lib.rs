@@ -12,6 +12,7 @@ pub mod heap;
 pub mod syscall;
 pub mod vfs;
 pub mod net;
+pub mod editor;
 
 use core::panic::PanicInfo;
 use vga::Color;
