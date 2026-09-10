@@ -27,7 +27,7 @@ pub const SYS_CLOSE: u32 = 6;
 pub const SYS_GETPID: u32 = 20;
 
 extern "C" {
-    fn isr_register_handler(n: u8, handler: extern "C" fn(&mut Registers));
+    pub(crate) fn isr_register_handler(n: u8, handler: extern "C" fn(&mut Registers));
 }
 
 pub fn init() {
