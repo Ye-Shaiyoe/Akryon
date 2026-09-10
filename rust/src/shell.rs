@@ -31,6 +31,8 @@ pub const KEY_CTRL_L: u16 = 0x000C; // Clear screen (^L)
 pub const KEY_RETURN: u16 = 0x000D; // Carriage Return (\r)
 pub const KEY_CTRL_U: u16 = 0x0015; // Kill entire line
 pub const KEY_CTRL_W: u16 = 0x0017; // Delete previous word
+pub const KEY_CTRL_S: u16 = 0x0013; // Save (^S)
+pub const KEY_CTRL_Q: u16 = 0x0011; // Quit (^Q)
 pub const KEY_DEL_CHAR: u16 = 0x007F; // ASCII Del
 
 
