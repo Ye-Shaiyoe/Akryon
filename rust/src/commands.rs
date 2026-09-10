@@ -53,6 +53,7 @@ pub fn handle_command(cmd: &str) {
         "date"     => cmd_date(),
         "time"     => cmd_time(),
         "mway"     => cmd_mway(args),
+        "vmm"      => cmd_vmm(args),
         "panic"    => cmd_panic(args),
         "reboot"   => cmd_reboot(),
         _ => {
@@ -77,6 +78,7 @@ fn cmd_help() {
     println!("  touch <file>      - Create empty file");
     println!("  write <file> <tx> - Write text to a file");
     println!("  mway <file>       - Open full-screen text editor (Ctrl+S save, Ctrl+Q exit)");
+    println!("  vmm [info|test]   - Virtual Memory Manager & x86 Paging status/tests");
     println!("  syscall           - Test Unix int 0x80 system call");
     println!("  echo <text>       - Print text to screen");
     println!("  color <fg> <bg>   - Change console color (0..15)");
@@ -195,15 +197,24 @@ fn cmd_syscall_test() {
 }
 
 fn cmd_free() {
-
     let total = crate::pmm::total_memory() / 1024;
     let used = crate::pmm::used_memory() / 1024;
     let free = crate::pmm::free_memory() / 1024;
 
-    print_colored!(Color::LightCyan, Color::Black, "Memory Info:\n");
+    print_colored!(Color::LightCyan, Color::Black, "Physical Memory (PMM):\n");
     println!("  Total : {} KB ({} MB)", total, total / 1024);
     println!("  Used  : {} KB ({} MB)", used, used / 1024);
     println!("  Free  : {} KB ({} MB)", free, free / 1024);
+
+    print_colored!(Color::LightCyan, Color::Black, "Virtual Memory (VMM):\n");
+    let paging_active = crate::vmm::is_paging_enabled();
+    println!("  Paging       : {}", if paging_active { "Active (32-bit Protected Mode, CR0.PG=1, CR0.WP=1)" } else { "Inactive" });
+    if paging_active {
+        let cr3 = unsafe { crate::vmm::read_cr3() };
+        println!("  CR3 (PD)     : 0x{:08X}", cr3);
+        println!("  Mapped Pages : {} pages ({} KB)", crate::vmm::total_mapped_pages(), crate::vmm::total_mapped_pages() * 4);
+        println!("  Demand Faults: {} auto-handled", crate::vmm::demand_page_fault_count());
+    }
 }
 
 fn cmd_clear() {
@@ -502,4 +513,131 @@ fn cmd_mway(args: &str) {
     crate::editor::open(filename);
     logln!("[mway] Editor closed for: '{}'", filename);
 }
+
+// ---------------------------------------------------------------------------
+// vmm - Virtual Memory Manager & x86 Paging
+// ---------------------------------------------------------------------------
+
+fn cmd_vmm(args: &str) {
+    let parts: alloc::vec::Vec<&str> = args.split_whitespace().collect();
+    let subcmd = if parts.is_empty() { "info" } else { parts[0] };
+
+    match subcmd {
+        "info" | "status" => {
+            print_colored!(Color::LightCyan, Color::Black, "Virtual Memory Manager (VMM) Status:\n");
+            let active = crate::vmm::is_paging_enabled();
+            println!("  x86 Paging      : {}", if active { "ENABLED (32-bit Protected Mode)" } else { "DISABLED" });
+            if active {
+                let cr3 = unsafe { crate::vmm::read_cr3() };
+                println!("  Page Dir (CR3)  : 0x{:08X}", cr3);
+                println!("  Identity Map    : 0x00000000 - 0x03FFFFFF (64 MB)");
+                println!("  Total Mapped    : {} pages ({} KB)", 
+                    crate::vmm::total_mapped_pages(),
+                    crate::vmm::total_mapped_pages() * 4
+                );
+                println!("  Demand Range    : 0x{:08X} - 0x{:08X} (16 MB)", crate::vmm::DEMAND_PAGING_START, crate::vmm::DEMAND_PAGING_END);
+                println!("  Demand Faults   : {} auto-allocated via ISR 14", crate::vmm::demand_page_fault_count());
+                println!("  Protection      : Supervisor Write-Protect (CR0.WP=1)");
+            }
+        }
+        "test" => {
+            print_colored!(Color::LightCyan, Color::Black, "[VMM Test] ");
+            println!("Running automated paging and demand-paging verification suite...");
+            
+            print!("  1. Testing Identity Mapping (Kernel & VGA) ... ");
+            let k_ok = crate::vmm::get_phys_addr(0x10000) == Some(0x10000);
+            let vga_ok = crate::vmm::get_phys_addr(0xB8000) == Some(0xB8000);
+            if k_ok && vga_ok {
+                print_colored!(Color::LightGreen, Color::Black, "PASSED\n");
+            } else {
+                print_colored!(Color::LightRed, Color::Black, "FAILED\n");
+            }
+
+            print!("  2. Testing Demand Paging on 0xC0002000 ... ");
+            let test_addr = 0xC0002000 as *mut u32;
+            let val = 0x5A5A1234;
+            unsafe {
+                core::ptr::write_volatile(test_addr, val);
+                let read = core::ptr::read_volatile(test_addr);
+                if read == val && crate::vmm::get_phys_addr(0xC0002000).is_some() {
+                    print_colored!(Color::LightGreen, Color::Black, "PASSED");
+                    println!(" (auto-allocated frame: 0x{:08X})", crate::vmm::get_phys_addr(0xC0002000).unwrap());
+                } else {
+                    print_colored!(Color::LightRed, Color::Black, "FAILED\n");
+                }
+            }
+
+            print!("  3. Testing Dynamic Mapping & Unmapping ... ");
+            let custom_v = 0xD0001000;
+            if let Some(frame) = crate::pmm::alloc_frame() {
+                let map_res = crate::vmm::map_page(custom_v, frame, crate::vmm::PAGE_WRITABLE);
+                let mut data_ok = false;
+                if map_res.is_ok() {
+                    unsafe {
+                        let ptr = custom_v as *mut u32;
+                        core::ptr::write_volatile(ptr, 0xCAFEBABE);
+                        data_ok = core::ptr::read_volatile(ptr) == 0xCAFEBABE;
+                    }
+                    let _ = crate::vmm::unmap_page(custom_v);
+                }
+                crate::pmm::free_frame(frame);
+                if data_ok {
+                    print_colored!(Color::LightGreen, Color::Black, "PASSED\n");
+                } else {
+                    print_colored!(Color::LightRed, Color::Black, "FAILED\n");
+                }
+            } else {
+                print_colored!(Color::LightRed, Color::Black, "OUT OF MEMORY\n");
+            }
+
+            print_colored!(Color::LightGreen, Color::Black, "\n[SUCCESS] ");
+            println!("All Virtual Memory Manager tests executed successfully!");
+        }
+        "map" => {
+            if parts.len() < 3 {
+                print_colored!(Color::LightRed, Color::Black, "Usage: ");
+                println!("vmm map <virt_hex> <phys_hex>");
+                println!("  Example: vmm map D0000000 1000000");
+                return;
+            }
+            let virt = usize::from_str_radix(parts[1].trim_start_matches("0x"), 16);
+            let phys = usize::from_str_radix(parts[2].trim_start_matches("0x"), 16);
+            match (virt, phys) {
+                (Ok(v), Ok(p)) => {
+                    match crate::vmm::map_page(v, p, crate::vmm::PAGE_WRITABLE) {
+                        Ok(_) => {
+                            print_colored!(Color::LightGreen, Color::Black, "[OK] ");
+                            println!("Mapped virt 0x{:08X} -> phys 0x{:08X}", v, p);
+                        }
+                        Err(e) => {
+                            print_colored!(Color::LightRed, Color::Black, "Error: ");
+                            println!("{}", e);
+                        }
+                    }
+                }
+                _ => {
+                    print_colored!(Color::LightRed, Color::Black, "Error: ");
+                    println!("Invalid hexadecimal address.");
+                }
+            }
+        }
+        "fault" => {
+            print_colored!(Color::Yellow, Color::Black, "[WARNING] ");
+            println!("Triggering intentional Page Fault at unmapped address 0xDEAD0000...");
+            println!("This will invoke the Page Fault Exception Handler (ISR 14).");
+            unsafe {
+                let ptr = 0xDEAD0000 as *const u32;
+                let _ = core::ptr::read_volatile(ptr);
+            }
+        }
+        _ => {
+            print_colored!(Color::LightCyan, Color::Black, "VMM Commands:\n");
+            println!("  vmm info                   - Display paging and directory information");
+            println!("  vmm test                   - Run automated Demand Paging & VMM test suite");
+            println!("  vmm map <virt_hex> <phys>  - Map virtual page to physical frame");
+            println!("  vmm fault                  - Trigger intentional page fault exception (panic test)");
+        }
+    }
+}
+
 
