@@ -29,7 +29,11 @@ void hal_init(void) {
     pci_init();
     rtl8139_init();
 
-    // 8. Enable Interrupts (STI)
+    // 8. Initialize RTC/CMOS Real-Time Clock
+    rtc_init();
+    serial_puts("[Akryon Kernel] RTC/CMOS driver initialized.\n");
+
+    // 9. Enable Interrupts (STI)
     sti();
     serial_puts("[Akryon Kernel] Hardware interrupts enabled (STI).\n");
 }
