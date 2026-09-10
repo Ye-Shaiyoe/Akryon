@@ -13,6 +13,7 @@ pub mod syscall;
 pub mod vfs;
 pub mod net;
 pub mod editor;
+pub mod vmm;
 
 use core::panic::PanicInfo;
 use vga::Color;
@@ -79,6 +80,7 @@ pub extern "C" fn akryon_rust_main() -> ! {
         ALLOCATOR.init(heap_start, heap_size);
     }
 
+    vmm::init();
     syscall::init();
     vfs::init();
     net::init();
@@ -100,6 +102,8 @@ pub extern "C" fn akryon_rust_main() -> ! {
     print_colored!(Color::LightGreen, Color::Black, "[OK] ");
     println!("Physical memory and kernel heap initialized.");
     print_colored!(Color::LightGreen, Color::Black, "[OK] ");
+    println!("Virtual Memory Manager (x86 Paging & Page Fault) enabled.");
+    print_colored!(Color::LightGreen, Color::Black, "[OK] ");
     println!("Unix System Calls (int 0x80) and VFS initialized.");
     print_colored!(Color::LightGreen, Color::Black, "[OK] ");
     println!("Hardware components & RTL8139 network initialized.");
@@ -119,6 +123,9 @@ pub extern "C" fn akryon_rust_main() -> ! {
             in("edx") test_msg.len() as u32,
         );
     }
+
+    // Run automated self-test of Virtual Memory Manager (Identity & Demand Paging)
+    vmm::test_vmm();
 
     shell::run_shell();
 }
