@@ -123,6 +123,13 @@ int rtl8139_is_active(void) {
     return card_active;
 }
 
+int rtl8139_has_packet(void) {
+    if (!card_active) {
+        return 0;
+    }
+    return (inb(io_base + RTL_REG_COMMAND) & RTL_CMD_EMPTY) == 0;
+}
+
 int rtl8139_get_mac(uint8_t *mac_out) {
     if (!card_active) {
         return -1;
@@ -136,13 +143,15 @@ int rtl8139_send_packet(const void *data, uint32_t len) {
         return -1;
     }
 
+    uint32_t tx_len = len < 60 ? 60 : len;
+    memset(tx_buffers[tx_cur], 0, tx_len);
     memcpy(tx_buffers[tx_cur], data, len);
     outl(io_base + RTL_REG_TSAD0 + (tx_cur * 4), (uint32_t)tx_buffers[tx_cur]);
-    outl(io_base + RTL_REG_TSD0 + (tx_cur * 4), len & 0x1FFF);
+    outl(io_base + RTL_REG_TSD0 + (tx_cur * 4), tx_len & 0x1FFF);
 
     tx_cur = (tx_cur + 1) % 4;
     stat_tx_pkts++;
-    stat_tx_bytes += len;
+    stat_tx_bytes += tx_len;
     return (int)len;
 }
 
