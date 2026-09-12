@@ -4,6 +4,7 @@ use crate::{print_colored, println};
 
 extern "C" {
     fn keyboard_getchar() -> u16;
+    fn keyboard_has_char() -> bool;
 }
 
 // Special extended keycodes matching hal/keyboard.h
@@ -106,6 +107,13 @@ pub fn run_shell() -> ! {
     let (mut prompt_x, mut prompt_y) = vga::get_cursor();
 
     loop {
+        while unsafe { !keyboard_has_char() } {
+            crate::net::poll();
+            unsafe {
+                core::arch::asm!("hlt");
+            }
+        }
+
         let key = unsafe { keyboard_getchar() };
 
         match key {
